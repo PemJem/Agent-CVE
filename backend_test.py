@@ -2,6 +2,7 @@ import requests
 import unittest
 import sys
 from datetime import datetime
+import json
 
 class CVEAgentAPITester:
     def __init__(self, base_url="https://030feba8-624b-414f-aa2e-929b047cd90f.preview.emergentagent.com"):
