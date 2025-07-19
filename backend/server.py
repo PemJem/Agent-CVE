@@ -88,6 +88,21 @@ class EmailReportStatus(BaseModel):
     status: str  # "sent", "failed", "partial"
     error_details: List[str] = []
 
+class DailyCVETimeline(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: datetime
+    high_severity_cves: List[CVEItem]
+    new_critical_count: int
+    new_high_count: int
+    total_new_count: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class UserVisit(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_session: str  # Simple session tracking
+    last_visit: datetime = Field(default_factory=datetime.utcnow)
+    viewed_dates: List[str] = []  # List of dates user has viewed
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
