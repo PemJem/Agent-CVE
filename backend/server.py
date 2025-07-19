@@ -506,6 +506,67 @@ async def send_daily_email_report():
         
         await db.email_reports.insert_one(report_status.dict())
 
+async def create_daily_cve_timeline(target_date: datetime = None):
+    """Create daily timeline of high severity CVEs (CVSS >= 7.0)"""
+    try:
+        if target_date is None:
+            target_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Define date range for the day
+        start_date = target_date
+        end_date = start_date + timedelta(days=1)
+        
+        # Get CVEs scraped during this day with CVSS >= 7.0
+        high_severity_query = {
+            "scraped_at": {"$gte": start_date, "$lt": end_date},
+            "$or": [
+                {"severity": "CRITICAL"},
+                {"severity": "HIGH"},
+                {"score": {"$gte": 7.0}}
+            ]
+        }
+        
+        cves_cursor = db.cve_items.find(high_severity_query).sort("score", -1)
+        cves = await cves_cursor.to_list(length=None)
+        cve_items = [CVEItem(**cve) for cve in cves]
+        
+        if not cve_items:
+            logger.info(f"No high severity CVEs found for {target_date.strftime('%Y-%m-%d')}")
+            return None
+        
+        # Count by severity
+        critical_count = len([c for c in cve_items if c.severity == 'CRITICAL'])
+        high_count = len([c for c in cve_items if c.severity == 'HIGH'])
+        
+        # Create timeline entry
+        timeline = DailyCVETimeline(
+            date=target_date,
+            high_severity_cves=cve_items,
+            new_critical_count=critical_count,
+            new_high_count=high_count,
+            total_new_count=len(cve_items)
+        )
+        
+        # Check if timeline for this date already exists
+        existing = await db.daily_cve_timeline.find_one({"date": target_date})
+        if existing:
+            # Update existing timeline
+            await db.daily_cve_timeline.update_one(
+                {"date": target_date},
+                {"$set": timeline.dict()}
+            )
+            logger.info(f"Updated CVE timeline for {target_date.strftime('%Y-%m-%d')} with {len(cve_items)} high severity CVEs")
+        else:
+            # Insert new timeline
+            await db.daily_cve_timeline.insert_one(timeline.dict())
+            logger.info(f"Created CVE timeline for {target_date.strftime('%Y-%m-%d')} with {len(cve_items)} high severity CVEs")
+        
+        return timeline
+        
+    except Exception as e:
+        logger.error(f"Failed to create daily CVE timeline: {e}")
+        return None
+
 async def daily_scraping_job():
     """Daily scraping job that runs at 19:00"""
     logger.info("Starting daily CVE scraping job...")
