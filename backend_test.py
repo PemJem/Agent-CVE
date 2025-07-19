@@ -264,31 +264,66 @@ class CVEAgentAPITester:
 
     def run_all_tests(self):
         """Run all API tests"""
-        print("🚀 Starting CVE Agent API Tests...")
+        print("🚀 Starting Extended CVE Agent API Tests...")
+        print("=" * 60)
         
-        # Test API root
+        # Basic API Tests
+        print("\n📋 BASIC API TESTS")
+        print("-" * 30)
         self.test_api_root()
-        
-        # Test scraping status
         self.test_scraping_status()
-        
-        # Test latest summary
         self.test_latest_summary()
-        
-        # Test summaries history
         self.test_summaries_history()
-        
-        # Test recent CVEs
         self.test_recent_cves()
-        
-        # Test CVEs by severity
         self.test_cves_by_severity()
         
-        # Test manual scrape (run this last as it might take time)
+        # CVE Timeline System Tests
+        print("\n📈 CVE TIMELINE SYSTEM TESTS")
+        print("-" * 30)
+        self.test_cve_timeline()
+        self.test_cve_timeline_latest()
+        self.test_cve_timeline_generate()
+        self.test_cve_timeline_stats()
+        
+        # Email Management System Tests
+        print("\n📧 EMAIL MANAGEMENT SYSTEM TESTS")
+        print("-" * 30)
+        self.test_email_config_status()
+        self.test_email_subscribe()
+        self.test_email_subscribers_list()
+        self.test_email_send_test()
+        self.test_email_reports_status()
+        self.test_email_unsubscribe()  # Run unsubscribe after other email tests
+        
+        # User Visit Tracking Tests
+        print("\n👤 USER VISIT TRACKING TESTS")
+        print("-" * 30)
+        self.test_user_visit_tracking()
+        self.test_user_visit_get()
+        
+        # Manual Scrape Test (run last as it might take time)
+        print("\n🔄 MANUAL SCRAPING TEST")
+        print("-" * 30)
         self.test_manual_scrape()
         
-        # Print results
-        print(f"\n📊 Tests passed: {self.tests_passed}/{self.tests_run}")
+        # Print final results
+        print("\n" + "=" * 60)
+        print(f"📊 FINAL RESULTS: {self.tests_passed}/{self.tests_run} tests passed")
+        
+        # Print detailed results
+        failed_tests = [t for t in self.test_results if t["status"] in ["FAIL", "ERROR"]]
+        expected_fails = [t for t in self.test_results if t["status"] == "EXPECTED_FAIL"]
+        
+        if failed_tests:
+            print(f"\n❌ FAILED TESTS ({len(failed_tests)}):")
+            for test in failed_tests:
+                print(f"  - {test['name']}: {test.get('error', 'Unknown error')}")
+        
+        if expected_fails:
+            print(f"\n⚠️  EXPECTED FAILURES ({len(expected_fails)}):")
+            for test in expected_fails:
+                print(f"  - {test['name']}: {test.get('note', 'Expected failure')}")
+        
         return self.test_results
 
 def main():
