@@ -72,6 +72,22 @@ class ScrapingStatus(BaseModel):
     items_scraped: int
     errors: List[str] = []
 
+class EmailSubscriber(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    added_at: datetime = Field(default_factory=datetime.utcnow)
+    active: bool = True
+
+class EmailRequest(BaseModel):
+    email: EmailStr
+
+class EmailReportStatus(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sent_at: datetime = Field(default_factory=datetime.utcnow)
+    recipients_count: int
+    status: str  # "sent", "failed", "partial"
+    error_details: List[str] = []
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
