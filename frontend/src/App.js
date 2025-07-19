@@ -360,6 +360,245 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'timeline' && (
+          <div className="px-4 py-6 sm:px-0">
+            {/* Timeline Stats */}
+            {timelineStats && (
+              <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
+                <div className="px-4 py-5 sm:p-6">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    📊 Statystyki Timeline CVSS ≥ 7.0
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-red-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-red-600">{timelineStats.total_critical_cves}</p>
+                      <p className="text-sm text-red-600">Krytyczne CVE</p>
+                    </div>
+                    <div className="bg-orange-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-orange-600">{timelineStats.total_high_cves}</p>
+                      <p className="text-sm text-orange-600">Wysokie CVE</p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-blue-600">{timelineStats.total_high_severity_cves}</p>
+                      <p className="text-sm text-blue-600">Łącznie ≥7.0</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-gray-600">{timelineStats.recent_entries_7_days}</p>
+                      <p className="text-sm text-gray-600">Dni (7 dni)</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Timeline Entries */}
+            <div className="space-y-6">
+              <h3 className="text-xl font-medium text-gray-900">🔥 Dzienny Timeline Wysokich Zagrożeń (CVSS ≥ 7.0)</h3>
+              
+              {cveTimeline.length === 0 ? (
+                <div className="bg-white shadow rounded-lg p-8 text-center">
+                  <div className="text-gray-400 text-4xl mb-4">📅</div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">Brak danych timeline</h4>
+                  <p className="text-gray-600">Nie znaleziono CVE o wysokiej wadze w ostatnim czasie.</p>
+                  <button
+                    onClick={() => axios.post(`${API_BASE_URL}/api/cves/timeline/generate`)}
+                    className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Wygeneruj Timeline dla Dzisiaj
+                  </button>
+                </div>
+              ) : (
+                cveTimeline.map((timeline) => (
+                  <div key={timeline.id} className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="bg-gradient-to-r from-red-600 to-orange-600 px-6 py-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-medium text-white">
+                            {new Date(timeline.date).toLocaleDateString('pl-PL', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </h4>
+                          <p className="text-red-100">
+                            {timeline.total_new_count} nowych zagrożeń wysokiej wagi
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1 mb-1">
+                            <span className="text-white text-sm font-medium">
+                              {timeline.new_critical_count} krytycznych
+                            </span>
+                          </div>
+                          <div className="bg-white bg-opacity-20 rounded-lg px-3 py-1">
+                            <span className="text-white text-sm font-medium">
+                              {timeline.new_high_count} wysokich
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        {timeline.high_severity_cves.slice(0, 5).map((cve) => (
+                          <div key={cve.id} className="border-l-4 border-red-400 pl-4 py-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <h5 className="font-medium text-gray-900">{cve.title}</h5>
+                              <div className="flex items-center space-x-2">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(cve.severity)}`}>
+                                  {cve.severity}
+                                </span>
+                                {cve.score && (
+                                  <span className="text-sm text-gray-500">
+                                    CVSS: {cve.score.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">
+                              {cve.description.length > 150 
+                                ? `${cve.description.substring(0, 150)}...` 
+                                : cve.description
+                              }
+                            </p>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>Źródło: {cve.source}</span>
+                              <a
+                                href={cve.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                Zobacz szczegóły →
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {timeline.high_severity_cves.length > 5 && (
+                          <div className="text-center py-2">
+                            <p className="text-sm text-gray-500">
+                              ... i {timeline.high_severity_cves.length - 5} więcej zagrożeń tego dnia
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'emails' && (
+          <div className="px-4 py-6 sm:px-0">
+            {!emailConfigStatus?.configured ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <div className="w-5 h-5 text-yellow-400">⚠️</div>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-yellow-800">
+                      Gmail nie jest skonfigurowany
+                    </h3>
+                    <p className="mt-2 text-sm text-yellow-700">
+                      Aby włączyć raporty email, administrator musi skonfigurować GMAIL_USER i GMAIL_APP_PASSWORD w pliku .env
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Email Configuration Status */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <div className="w-5 h-5 text-green-400">✅</div>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-green-800">
+                        Gmail skonfigurowany pomyślnie
+                      </h3>
+                      <p className="mt-2 text-sm text-green-700">
+                        Email: {emailConfigStatus.gmail_user} | Template: {emailConfigStatus.template_available ? '✅' : '❌'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add New Email */}
+                <div className="bg-white shadow rounded-lg mb-6">
+                  <div className="px-4 py-5 sm:p-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                      📧 Zarządzaj Subskrypcjami Email
+                    </h3>
+                    <div className="flex space-x-3">
+                      <input
+                        type="email"
+                        placeholder="nazwa@przykład.com"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        className="flex-1 min-w-0 rounded-md border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={addEmailSubscriber}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        Dodaj Email
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Subscribers List */}
+                <div className="bg-white shadow rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                      Lista Subskrybentów ({emailSubscribers.length})
+                    </h3>
+                    
+                    {emailSubscribers.length === 0 ? (
+                      <p className="text-gray-500 text-center py-8">Brak subskrybentów email</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {emailSubscribers.map((subscriber) => (
+                          <div key={subscriber.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="font-medium text-gray-900">{subscriber.email}</p>
+                              <p className="text-sm text-gray-500">
+                                Dodany: {formatDate(subscriber.added_at)}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => sendTestEmail(subscriber.email)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                disabled={loading}
+                              >
+                                Test Email
+                              </button>
+                              <button
+                                onClick={() => removeEmailSubscriber(subscriber.email)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                              >
+                                Usuń
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {activeTab === 'cves' && (
           <div className="px-4 py-6 sm:px-0">
             {/* Severity Filter */}
