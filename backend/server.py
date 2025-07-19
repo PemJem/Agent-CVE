@@ -628,6 +628,116 @@ async def get_cves_by_severity(severity: str):
     cves = await db.cve_items.find({"severity": severity.upper()}).sort("scraped_at", -1).limit(20).to_list(length=None)
     return [CVEItem(**cve) for cve in cves]
 
+# Email management endpoints
+@api_router.post("/emails/subscribe")
+async def subscribe_email(email_request: EmailRequest):
+    """Subscribe email to daily reports"""
+    try:
+        # Check if email already exists
+        existing = await db.email_subscribers.find_one({"email": email_request.email})
+        if existing:
+            if existing["active"]:
+                raise HTTPException(status_code=400, detail="Email już jest zapisany do newslettera")
+            else:
+                # Reactivate existing email
+                await db.email_subscribers.update_one(
+                    {"email": email_request.email},
+                    {"$set": {"active": True, "added_at": datetime.utcnow()}}
+                )
+                return {"message": "Email został ponownie aktywowany"}
+        
+        # Add new email subscriber
+        subscriber = EmailSubscriber(email=email_request.email)
+        await db.email_subscribers.insert_one(subscriber.dict())
+        
+        return {"message": "Email dodany pomyślnie do listy raportów"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to subscribe email: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas dodawania email")
+
+@api_router.delete("/emails/unsubscribe")
+async def unsubscribe_email(email_request: EmailRequest):
+    """Unsubscribe email from daily reports"""
+    try:
+        result = await db.email_subscribers.update_one(
+            {"email": email_request.email},
+            {"$set": {"active": False}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Email nie znaleziony w bazie")
+        
+        return {"message": "Email usunięty z listy raportów"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to unsubscribe email: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas usuwania email")
+
+@api_router.get("/emails/subscribers")
+async def get_subscribers():
+    """Get list of active email subscribers"""
+    try:
+        subscribers = await db.email_subscribers.find({"active": True}).sort("added_at", -1).to_list(length=None)
+        return [EmailSubscriber(**sub) for sub in subscribers]
+    except Exception as e:
+        logger.error(f"Failed to get subscribers: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas pobierania listy")
+
+@api_router.post("/emails/send-test")
+async def send_test_email(email_request: EmailRequest):
+    """Send test email report to specified address"""
+    try:
+        # Get latest summary data
+        latest_summary = await db.daily_summaries.find_one(sort=[("date", -1)])
+        
+        # Send test email
+        await send_email_report([email_request.email], latest_summary or {})
+        
+        return {"message": f"Test email wysłany na adres {email_request.email}"}
+    
+    except Exception as e:
+        logger.error(f"Failed to send test email: {e}")
+        raise HTTPException(status_code=500, detail=f"Błąd wysyłania test email: {str(e)}")
+
+@api_router.post("/emails/send-manual")
+async def send_manual_report():
+    """Manually send email report to all subscribers"""
+    try:
+        await send_daily_email_report()
+        return {"message": "Raport wysłany do wszystkich subskrybentów"}
+    
+    except Exception as e:
+        logger.error(f"Failed to send manual report: {e}")
+        raise HTTPException(status_code=500, detail=f"Błąd wysyłania raportu: {str(e)}")
+
+@api_router.get("/emails/reports/status")
+async def get_email_reports_status():
+    """Get recent email sending status"""
+    try:
+        reports = await db.email_reports.find().sort("sent_at", -1).limit(10).to_list(length=None)
+        return [EmailReportStatus(**report) for report in reports]
+    except Exception as e:
+        logger.error(f"Failed to get email reports status: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas pobierania statusu")
+
+# Gmail configuration endpoint
+@api_router.get("/emails/config/status")
+async def get_email_config_status():
+    """Check if Gmail configuration is available"""
+    gmail_user, gmail_password = get_gmail_config()
+    is_configured = bool(gmail_user and gmail_password)
+    
+    return {
+        "configured": is_configured,
+        "gmail_user": gmail_user if is_configured else None,
+        "template_available": html_template is not None
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
