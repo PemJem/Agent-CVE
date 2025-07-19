@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dzienny Raport CVE - {{ date.strftime('%d.%m.%Y') }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid;
+        }
+        .stat-card.total { border-color: #6b7280; }
+        .stat-card.critical { border-color: #dc2626; }
+        .stat-card.high { border-color: #f97316; }
+        .stat-card.medium { border-color: #eab308; }
+        .stat-card.low { border-color: #16a34a; }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 5px 0 0 0;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 30px 0 20px 0;
+            color: #1e40af;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+        .cve-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid;
+        }
+        .cve-item.critical { border-color: #dc2626; }
+        .cve-item.high { border-color: #f97316; }
+        .cve-item.medium { border-color: #eab308; }
+        .cve-item.low { border-color: #16a34a; }
+        .cve-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .cve-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0;
+            color: #1e40af;
+        }
+        .severity-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .severity-critical { background: #fecaca; color: #991b1b; }
+        .severity-high { background: #fed7aa; color: #c2410c; }
+        .severity-medium { background: #fef3c7; color: #92400e; }
+        .severity-low { background: #dcfce7; color: #166534; }
+        .cve-meta {
+            font-size: 12px;
+            color: #6b7280;
+            margin: 10px 0;
+        }
+        .cve-description {
+            font-size: 14px;
+            color: #374151;
+            line-height: 1.5;
+        }
+        .cve-source {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: right;
+            margin-top: 10px;
+        }
+        .no-data {
+            text-align: center;
+            color: #6b7280;
+            padding: 40px;
+            font-style: italic;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .alert-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .alert-box.warning {
+            background: #fffbeb;
+            border-color: #fed7aa;
+        }
+        .alert-title {
+            font-weight: bold;
+            color: #991b1b;
+            margin: 0 0 10px 0;
+        }
+        .alert-title.warning {
+            color: #c2410c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛡️ Dzienny Raport CVE</h1>
+            <p>Raport bezpieczeństwa za dzień {{ date.strftime('%d.%m.%Y') }}</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card total">
+                <div class="stat-number">{{ total_cves }}</div>
+                <div class="stat-label">Łącznie CVE</div>
+            </div>
+            <div class="stat-card critical">
+                <div class="stat-number">{{ critical_count }}</div>
+                <div class="stat-label">Krytyczne</div>
+            </div>
+            <div class="stat-card high">
+                <div class="stat-number">{{ high_count }}</div>
+                <div class="stat-label">Wysokie</div>
+            </div>
+            <div class="stat-card medium">
+                <div class="stat-number">{{ medium_count }}</div>
+                <div class="stat-label">Średnie</div>
+            </div>
+            <div class="stat-card low">
+                <div class="stat-number">{{ low_count }}</div>
+                <div class="stat-label">Niskie</div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            {% if critical_count > 0 %}
+            <div class="alert-box">
+                <div class="alert-title">⚠️ UWAGA - Wykryto krytyczne podatności!</div>
+                <p>Dzisiaj znaleziono {{ critical_count }} krytycznych podatności wymagających natychmiastowej uwagi.</p>
+            </div>
+            {% elif high_count > 0 %}
+            <div class="alert-box warning">
+                <div class="alert-title warning">⚡ Wykryto podatności wysokiego ryzyka</div>
+                <p>Znaleziono {{ high_count }} podatności wysokiego ryzyka. Zalecamy przegląd i zastosowanie łatek.</p>
+            </div>
+            {% endif %}
+
+            <!-- Top Threats -->
+            {% if top_threats %}
+            <div class="section-title">🔥 Top 5 Zagrożeń</div>
+            {% for cve in top_threats[:5] %}
+            <div class="cve-item {{ cve.severity.lower() }}">
+                <div class="cve-header">
+                    <h3 class="cve-title">{{ cve.title }}</h3>
+                    <div>
+                        <span class="severity-badge severity-{{ cve.severity.lower() }}">{{ cve.severity }}</span>
+                        {% if cve.score %}
+                        <span style="margin-left: 10px; font-size: 12px; color: #6b7280;">CVSS: {{ "%.1f"|format(cve.score) }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if cve.cve_id %}
+                <div class="cve-meta">CVE ID: {{ cve.cve_id }}</div>
+                {% endif %}
+                <div class="cve-description">{{ cve.description[:300] }}{% if cve.description|length > 300 %}...{% endif %}</div>
+                <div class="cve-source">Źródło: {{ cve.source }}</div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- All CVEs by Severity -->
+            {% if high_severity_cves %}
+            <div class="section-title">🔴 Podatności Wysokiego Ryzyka (CVSS ≥ 7.0)</div>
+            {% for cve in high_severity_cves %}
+            <div class="cve-item {{ cve.severity.lower() }}">
+                <div class="cve-header">
+                    <h3 class="cve-title">{{ cve.title }}</h3>
+                    <div>
+                        <span class="severity-badge severity-{{ cve.severity.lower() }}">{{ cve.severity }}</span>
+                        {% if cve.score %}
+                        <span style="margin-left: 10px; font-size: 12px; color: #6b7280;">CVSS: {{ "%.1f"|format(cve.score) }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if cve.cve_id %}
+                <div class="cve-meta">CVE ID: {{ cve.cve_id }} | Publikacja: {{ cve.published_date.strftime('%d.%m.%Y %H:%M') }}</div>
+                {% endif %}
+                <div class="cve-description">{{ cve.description }}</div>
+                <div class="cve-source">Źródło: {{ cve.source }} | <a href="{{ cve.url }}" style="color: #1e40af;">Zobacz więcej</a></div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="no-data">
+                ✅ Brak podatności wysokiego ryzyka w ostatnim scanie
+            </div>
+            {% endif %}
+
+            <!-- Summary -->
+            <div class="section-title">📊 Podsumowanie</div>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                <p><strong>Data raportu:</strong> {{ date.strftime('%d.%m.%Y %H:%M') }}</p>
+                <p><strong>Źródła danych:</strong> CVE Details, The Hacker News, BleepingComputer, SecurityWeek, NVD NIST</p>
+                <p><strong>Łączna liczba przeskanowanych zagrożeń:</strong> {{ total_cves }}</p>
+                <p><strong>Podatności wymagające uwagi (CVSS ≥ 7.0):</strong> {{ critical_count + high_count }}</p>
+                {% if total_cves > 0 %}
+                <p><strong>Rekomendacja:</strong> 
+                {% if critical_count > 0 %}
+                    Natychmiastowy przegląd i aplikacja łatek dla krytycznych podatności.
+                {% elif high_count > 0 %}
+                    Przegląd podatności wysokiego ryzyka w ciągu 24-48 godzin.
+                {% else %}
+                    Kontynuacja monitoringu zgodnie z planem.
+                {% endif %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>CVE Agent</strong> - System monitorowania zagrożeń bezpieczeństwa</p>
+            <p>Ten raport został wygenerowany automatycznie dnia {{ date.strftime('%d.%m.%Y o %H:%M') }}</p>
+            <p style="font-size: 12px; color: #9ca3af;">Aby zaktualizować preferencje email lub zrezygnować z raportów, skontaktuj się z administratorem systemu</p>
+        </div>
+    </div>
+</body>
+</html>
