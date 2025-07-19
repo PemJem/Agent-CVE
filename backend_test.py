@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 
 class CVEAgentAPITester:
-    def __init__(self, base_url="https://654780bb-6344-4fb7-88e9-4e213b1250ed.preview.emergentagent.com"):
+    def __init__(self, base_url="https://030feba8-624b-414f-aa2e-929b047cd90f.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
