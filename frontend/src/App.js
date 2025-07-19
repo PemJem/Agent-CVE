@@ -81,6 +81,64 @@ function App() {
     }
   };
 
+  const fetchTimelineStats = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/cves/timeline/stats`);
+      setTimelineStats(response.data);
+    } catch (error) {
+      console.error('Error fetching timeline stats:', error);
+    }
+  };
+
+  const fetchEmailSubscribers = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/emails/subscribers`);
+      setEmailSubscribers(response.data);
+    } catch (error) {
+      console.error('Error fetching email subscribers:', error);
+    }
+  };
+
+  const addEmailSubscriber = async () => {
+    if (!newEmail.trim()) {
+      alert('Wprowadź adres email');
+      return;
+    }
+    
+    try {
+      await axios.post(`${API_BASE_URL}/api/emails/subscribe`, { email: newEmail });
+      alert('Email dodany pomyślnie!');
+      setNewEmail('');
+      fetchEmailSubscribers();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Błąd podczas dodawania email');
+    }
+  };
+
+  const removeEmailSubscriber = async (email) => {
+    if (!window.confirm(`Czy na pewno chcesz usunąć email ${email}?`)) return;
+    
+    try {
+      await axios.delete(`${API_BASE_URL}/api/emails/unsubscribe`, { data: { email } });
+      alert('Email usunięty pomyślnie!');
+      fetchEmailSubscribers();
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Błąd podczas usuwania email');
+    }
+  };
+
+  const sendTestEmail = async (email) => {
+    try {
+      setLoading(true);
+      await axios.post(`${API_BASE_URL}/api/emails/send-test`, { email });
+      alert(`Test email wysłany na ${email}!`);
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Błąd wysyłania test email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const manualScrape = async () => {
     try {
       setLoading(true);
