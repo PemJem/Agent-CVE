@@ -12,6 +12,24 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
+  
+  // New states for timeline and email management
+  const [cveTimeline, setCveTimeline] = useState([]);
+  const [timelineStats, setTimelineStats] = useState(null);
+  const [emailSubscribers, setEmailSubscribers] = useState([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailConfigStatus, setEmailConfigStatus] = useState(null);
+  const [lastVisit, setLastVisit] = useState(null);
+  
+  // Generate simple session ID
+  const [sessionId] = useState(() => {
+    let stored = localStorage.getItem('cve_session_id');
+    if (!stored) {
+      stored = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('cve_session_id', stored);
+    }
+    return stored;
+  });
 
   useEffect(() => {
     fetchData();
