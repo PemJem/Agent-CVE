@@ -33,22 +33,47 @@ function App() {
 
   useEffect(() => {
     fetchData();
+    trackVisit();
   }, []);
+
+  const trackVisit = async () => {
+    try {
+      await axios.post(`${API_BASE_URL}/api/user/visit`, null, {
+        params: { session_id: sessionId }
+      });
+      
+      // Get last visit info
+      const visitRes = await axios.get(`${API_BASE_URL}/api/user/visit/${sessionId}`);
+      setLastVisit(visitRes.data.last_visit);
+    } catch (error) {
+      console.error('Error tracking visit:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [summaryRes, cvesRes, statusRes, summariesRes] = await Promise.all([
+      const [summaryRes, cvesRes, statusRes, summariesRes, timelineRes, emailConfigRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/summaries/latest`),
         axios.get(`${API_BASE_URL}/api/cves/recent`),
         axios.get(`${API_BASE_URL}/api/status`),
-        axios.get(`${API_BASE_URL}/api/summaries`)
+        axios.get(`${API_BASE_URL}/api/summaries`),
+        axios.get(`${API_BASE_URL}/api/cves/timeline?days=14`),
+        axios.get(`${API_BASE_URL}/api/emails/config/status`)
       ]);
 
       setLatestSummary(summaryRes.data);
       setRecentCVEs(cvesRes.data);
       setScrapingStatus(statusRes.data);
       setSummaries(summariesRes.data);
+      setCveTimeline(timelineRes.data);
+      setEmailConfigStatus(emailConfigRes.data);
+      
+      // Fetch email subscribers and timeline stats
+      if (emailConfigRes.data.configured) {
+        fetchEmailSubscribers();
+      }
+      fetchTimelineStats();
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
