@@ -370,6 +370,127 @@ class CVEScraper:
 # Global scraper instance
 scraper = CVEScraper()
 
+# Email configuration
+def get_gmail_config():
+    """Get Gmail configuration from environment variables"""
+    gmail_user = os.environ.get('GMAIL_USER')
+    gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
+    
+    if not gmail_user or not gmail_password:
+        logger.warning("Gmail credentials not configured. Email functionality disabled.")
+        return None, None
+    
+    return gmail_user, gmail_password
+
+# Load HTML template
+template_path = ROOT_DIR / 'templates' / 'cve_report.html'
+html_template = None
+
+try:
+    with open(template_path, 'r', encoding='utf-8') as file:
+        html_template = Template(file.read())
+    logger.info("Email HTML template loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load email template: {e}")
+
+async def send_email_report(recipients: List[str], summary_data: dict):
+    """Send HTML email report to recipients"""
+    gmail_user, gmail_password = get_gmail_config()
+    
+    if not gmail_user or not gmail_password:
+        raise HTTPException(status_code=500, detail="Gmail credentials not configured")
+    
+    if not html_template:
+        raise HTTPException(status_code=500, detail="Email template not available")
+    
+    try:
+        # Get recent CVEs for the report
+        recent_cves = await db.cve_items.find().sort("scraped_at", -1).limit(50).to_list(length=None)
+        cve_items = [CVEItem(**cve) for cve in recent_cves]
+        
+        # Filter high severity CVEs (CVSS >= 7.0)
+        high_severity_cves = [cve for cve in cve_items if cve.severity in ['CRITICAL', 'HIGH']]
+        
+        # Get top threats (sorted by score)
+        top_threats = sorted(cve_items, key=lambda x: (x.score or 0), reverse=True)[:5]
+        
+        # Render HTML
+        html_content = html_template.render(
+            date=datetime.now(),
+            total_cves=len(cve_items),
+            critical_count=len([c for c in cve_items if c.severity == 'CRITICAL']),
+            high_count=len([c for c in cve_items if c.severity == 'HIGH']),
+            medium_count=len([c for c in cve_items if c.severity == 'MEDIUM']),
+            low_count=len([c for c in cve_items if c.severity == 'LOW']),
+            high_severity_cves=high_severity_cves,
+            top_threats=top_threats
+        )
+        
+        # Create email
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"Dzienny Raport CVE - {datetime.now().strftime('%d.%m.%Y')}"
+        msg['From'] = gmail_user
+        msg['To'] = ', '.join(recipients)
+        
+        # Attach HTML content
+        html_part = MIMEText(html_content, 'html', 'utf-8')
+        msg.attach(html_part)
+        
+        # Send email
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(gmail_user, gmail_password)
+            text = msg.as_string()
+            server.sendmail(gmail_user, recipients, text)
+        
+        logger.info(f"Email report sent successfully to {len(recipients)} recipients")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send email report: {e}")
+        raise HTTPException(status_code=500, detail=f"Email sending failed: {str(e)}")
+
+async def send_daily_email_report():
+    """Send daily email report to all active subscribers"""
+    try:
+        # Get all active email subscribers
+        subscribers_cursor = db.email_subscribers.find({"active": True})
+        subscribers = await subscribers_cursor.to_list(length=None)
+        
+        if not subscribers:
+            logger.info("No active email subscribers found")
+            return
+        
+        recipient_emails = [sub['email'] for sub in subscribers]
+        
+        # Get latest summary data
+        latest_summary = await db.daily_summaries.find_one(sort=[("date", -1)])
+        
+        # Send email report
+        await send_email_report(recipient_emails, latest_summary or {})
+        
+        # Log email report status
+        report_status = EmailReportStatus(
+            recipients_count=len(recipient_emails),
+            status="sent",
+            error_details=[]
+        )
+        
+        await db.email_reports.insert_one(report_status.dict())
+        
+        logger.info(f"Daily email report sent to {len(recipient_emails)} subscribers")
+        
+    except Exception as e:
+        logger.error(f"Failed to send daily email report: {e}")
+        
+        # Log failed email report
+        report_status = EmailReportStatus(
+            recipients_count=0,
+            status="failed",
+            error_details=[str(e)]
+        )
+        
+        await db.email_reports.insert_one(report_status.dict())
+
 async def daily_scraping_job():
     """Daily scraping job that runs at 19:00"""
     logger.info("Starting daily CVE scraping job...")
