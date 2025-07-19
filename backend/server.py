@@ -558,6 +558,12 @@ async def daily_scraping_job():
             await db.scraping_status.insert_one(status.dict())
             
             logger.info(f"Daily scraping completed. Scraped {len(items)} items.")
+            
+            # Send daily email report
+            try:
+                await send_daily_email_report()
+            except Exception as email_error:
+                logger.error(f"Failed to send daily email report: {email_error}")
         
     except Exception as e:
         logger.error(f"Error in daily scraping job: {e}")
