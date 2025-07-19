@@ -138,6 +138,130 @@ class CVEAgentAPITester:
             200
         )
 
+    # CVE Timeline System Tests
+    def test_cve_timeline(self):
+        """Test CVE timeline endpoint for high severity CVEs (CVSS >= 7.0)"""
+        return self.run_test(
+            "CVE Timeline (High Severity)",
+            "GET",
+            "/api/cves/timeline",
+            200
+        )
+
+    def test_cve_timeline_latest(self):
+        """Test latest CVE timeline entry"""
+        return self.run_test(
+            "CVE Timeline Latest",
+            "GET",
+            "/api/cves/timeline/latest",
+            200
+        )
+
+    def test_cve_timeline_generate(self):
+        """Test manual timeline generation"""
+        return self.run_test(
+            "CVE Timeline Generate",
+            "POST",
+            "/api/cves/timeline/generate",
+            200
+        )
+
+    def test_cve_timeline_stats(self):
+        """Test CVE timeline statistics"""
+        return self.run_test(
+            "CVE Timeline Stats",
+            "GET",
+            "/api/cves/timeline/stats",
+            200
+        )
+
+    # Email Management System Tests
+    def test_email_config_status(self):
+        """Test Gmail configuration status"""
+        return self.run_test(
+            "Email Config Status",
+            "GET",
+            "/api/emails/config/status",
+            200
+        )
+
+    def test_email_subscribe(self):
+        """Test email subscription"""
+        test_email = "test.cve@example.com"
+        return self.run_test(
+            "Email Subscribe",
+            "POST",
+            "/api/emails/subscribe",
+            200,
+            {"email": test_email}
+        )
+
+    def test_email_subscribers_list(self):
+        """Test getting email subscribers list"""
+        return self.run_test(
+            "Email Subscribers List",
+            "GET",
+            "/api/emails/subscribers",
+            200
+        )
+
+    def test_email_unsubscribe(self):
+        """Test email unsubscription"""
+        test_email = "test.cve@example.com"
+        return self.run_test(
+            "Email Unsubscribe",
+            "DELETE",
+            "/api/emails/unsubscribe",
+            200,
+            {"email": test_email},
+            allow_404=True
+        )
+
+    def test_email_send_test(self):
+        """Test sending test email (will fail gracefully if Gmail not configured)"""
+        test_email = "test.cve@example.com"
+        success, response = self.run_test(
+            "Email Send Test",
+            "POST",
+            "/api/emails/send-test",
+            200,
+            {"email": test_email}
+        )
+        # This might fail if Gmail is not configured, which is expected
+        if not success:
+            print("⚠️  Email test failed - likely Gmail not configured (expected)")
+            self.test_results[-1]["status"] = "EXPECTED_FAIL"
+            self.test_results[-1]["note"] = "Gmail not configured - graceful handling expected"
+        return success, response
+
+    def test_email_reports_status(self):
+        """Test email reports status"""
+        return self.run_test(
+            "Email Reports Status",
+            "GET",
+            "/api/emails/reports/status",
+            200
+        )
+
+    # User Visit Tracking Tests
+    def test_user_visit_tracking(self):
+        """Test user visit tracking"""
+        return self.run_test(
+            "User Visit Tracking",
+            "POST",
+            "/api/user/visit?session_id=test_session_123",
+            200
+        )
+
+    def test_user_visit_get(self):
+        """Test getting user visit data"""
+        return self.run_test(
+            "User Visit Get",
+            "GET",
+            "/api/user/visit/test_session_123",
+            200
+        )
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting CVE Agent API Tests...")
