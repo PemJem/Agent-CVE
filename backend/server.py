@@ -820,6 +820,161 @@ async def get_email_config_status():
         "template_available": html_template is not None
     }
 
+# CVE Timeline endpoints
+@api_router.get("/cves/timeline")
+async def get_cve_timeline(days: int = 30):
+    """Get CVE timeline for high severity vulnerabilities (CVSS >= 7.0)"""
+    try:
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get timeline entries
+        timeline_cursor = db.daily_cve_timeline.find({
+            "date": {"$gte": start_date, "$lte": end_date}
+        }).sort("date", -1)
+        
+        timeline_entries = await timeline_cursor.to_list(length=None)
+        
+        # If no timeline entries exist, create them for recent days with data
+        if not timeline_entries:
+            logger.info("No timeline entries found, creating for recent days...")
+            for i in range(min(days, 7)):  # Create for last 7 days max
+                target_date = (end_date - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+                timeline_entry = await create_daily_cve_timeline(target_date)
+                if timeline_entry:
+                    timeline_entries.append(timeline_entry.dict())
+        
+        return [DailyCVETimeline(**entry) for entry in timeline_entries]
+    
+    except Exception as e:
+        logger.error(f"Failed to get CVE timeline: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas pobierania timeline")
+
+@api_router.get("/cves/timeline/latest")
+async def get_latest_cve_timeline():
+    """Get latest CVE timeline entry"""
+    try:
+        latest = await db.daily_cve_timeline.find_one(sort=[("date", -1)])
+        
+        if not latest:
+            # Create timeline for today
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            timeline_entry = await create_daily_cve_timeline(today)
+            if timeline_entry:
+                return timeline_entry
+            else:
+                return {"message": "Brak danych o wysokich zagrożeniach dla dzisiaj"}
+        
+        return DailyCVETimeline(**latest)
+    
+    except Exception as e:
+        logger.error(f"Failed to get latest CVE timeline: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas pobierania najnowszego timeline")
+
+@api_router.post("/cves/timeline/generate")
+async def generate_timeline_for_date(target_date: str = None):
+    """Manually generate timeline for specific date (YYYY-MM-DD format)"""
+    try:
+        if target_date:
+            date_obj = datetime.strptime(target_date, '%Y-%m-%d')
+        else:
+            date_obj = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        timeline_entry = await create_daily_cve_timeline(date_obj)
+        
+        if timeline_entry:
+            return {"message": f"Timeline utworzony dla daty {date_obj.strftime('%Y-%m-%d')}", "timeline": timeline_entry}
+        else:
+            return {"message": f"Brak danych wysokiego ryzyka dla daty {date_obj.strftime('%Y-%m-%d')}"}
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Nieprawidłowy format daty. Użyj YYYY-MM-DD")
+    except Exception as e:
+        logger.error(f"Failed to generate timeline: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas generowania timeline")
+
+@api_router.get("/cves/timeline/stats")
+async def get_timeline_stats():
+    """Get statistics about CVE timeline data"""
+    try:
+        # Get total timeline entries
+        total_entries = await db.daily_cve_timeline.count_documents({})
+        
+        # Get entries from last 7 days
+        week_ago = datetime.now() - timedelta(days=7)
+        recent_entries = await db.daily_cve_timeline.count_documents({
+            "date": {"$gte": week_ago}
+        })
+        
+        # Get total high severity CVEs tracked
+        pipeline = [
+            {"$group": {
+                "_id": None,
+                "total_critical": {"$sum": "$new_critical_count"},
+                "total_high": {"$sum": "$new_high_count"},
+                "total_cves": {"$sum": "$total_new_count"}
+            }}
+        ]
+        
+        stats_cursor = db.daily_cve_timeline.aggregate(pipeline)
+        stats_result = await stats_cursor.to_list(length=1)
+        
+        if stats_result:
+            stats = stats_result[0]
+        else:
+            stats = {"total_critical": 0, "total_high": 0, "total_cves": 0}
+        
+        return {
+            "total_timeline_entries": total_entries,
+            "recent_entries_7_days": recent_entries,
+            "total_critical_cves": stats["total_critical"],
+            "total_high_cves": stats["total_high"],
+            "total_high_severity_cves": stats["total_cves"]
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to get timeline stats: {e}")
+        raise HTTPException(status_code=500, detail="Błąd podczas pobierania statystyk")
+
+# User visit tracking
+@api_router.post("/user/visit")
+async def track_user_visit(session_id: str = "anonymous"):
+    """Track user visit for new CVE highlighting"""
+    try:
+        # Update or create user visit record
+        visit_record = UserVisit(
+            user_session=session_id,
+            last_visit=datetime.utcnow()
+        )
+        
+        await db.user_visits.update_one(
+            {"user_session": session_id},
+            {"$set": visit_record.dict()},
+            upsert=True
+        )
+        
+        return {"message": "Wizyta zapisana"}
+    
+    except Exception as e:
+        logger.error(f"Failed to track user visit: {e}")
+        raise HTTPException(status_code=500, detail="Błąd śledzenia wizyty")
+
+@api_router.get("/user/visit/{session_id}")
+async def get_user_last_visit(session_id: str):
+    """Get user's last visit timestamp"""
+    try:
+        visit = await db.user_visits.find_one({"user_session": session_id})
+        
+        if visit:
+            return UserVisit(**visit)
+        else:
+            return {"last_visit": None, "viewed_dates": []}
+    
+    except Exception as e:
+        logger.error(f"Failed to get user visit: {e}")
+        raise HTTPException(status_code=500, detail="Błąd pobierania wizyty")
+
 # Include the router in the main app
 app.include_router(api_router)
 
