@@ -11,7 +11,7 @@ class CVEAgentAPITester:
         self.tests_passed = 0
         self.test_results = []
 
-    def run_test(self, name, method, endpoint, expected_status, data=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, allow_404=False):
         """Run a single API test"""
         url = f"{self.base_url}{endpoint}"
         headers = {'Content-Type': 'application/json'}
@@ -24,8 +24,10 @@ class CVEAgentAPITester:
                 response = requests.get(url, headers=headers)
             elif method == 'POST':
                 response = requests.post(url, json=data, headers=headers)
+            elif method == 'DELETE':
+                response = requests.delete(url, json=data, headers=headers)
 
-            success = response.status_code == expected_status
+            success = response.status_code == expected_status or (allow_404 and response.status_code == 404)
             if success:
                 self.tests_passed += 1
                 print(f"✅ Passed - Status: {response.status_code}")
@@ -48,6 +50,11 @@ class CVEAgentAPITester:
                     return success, response.text
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"Error response: {error_data}")
+                except:
+                    print(f"Error response: {response.text[:200]}")
                 self.test_results.append({
                     "name": name,
                     "status": "FAIL",
