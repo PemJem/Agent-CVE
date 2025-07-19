@@ -640,6 +640,12 @@ async def daily_scraping_job():
                 await send_daily_email_report()
             except Exception as email_error:
                 logger.error(f"Failed to send daily email report: {email_error}")
+            
+            # Create daily CVE timeline for high severity CVEs
+            try:
+                await create_daily_cve_timeline()
+            except Exception as timeline_error:
+                logger.error(f"Failed to create daily CVE timeline: {timeline_error}")
         
     except Exception as e:
         logger.error(f"Error in daily scraping job: {e}")
